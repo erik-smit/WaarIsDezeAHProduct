@@ -37,7 +37,7 @@ class AHProductChecker:
     def launch_app(self, package_name="com.icemobile.albertheijn"):
         """Launch the Albert Heijn app."""
         logger.info(f"Launching {package_name}...")
-        self.device.app_start(package_name)
+        self.device.app_start(package_name, stop=True)
         time.sleep(3)  # Wait for app to launch
 
     def navigate_to_store_selection(self):
