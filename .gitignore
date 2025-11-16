@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Results
+results_*.csv
+results_*.json
+
+# Config (user-specific)
+config.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# uv
+.uv/
+
+# Development scripts
+dev/

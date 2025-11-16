@@ -1,0 +1,6 @@
+{
+  "product_name": "Your product name here",
+  "postcodes": ["9712BA", "9711HX", "9712HA", "9711HG", "9712NG"],
+  "output_format": "csv",
+  "device_serial": null
+}
