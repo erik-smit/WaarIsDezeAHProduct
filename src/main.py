@@ -7,8 +7,17 @@ import uiautomator2 as u2
 import time
 import json
 import csv
+import logging
 from datetime import datetime
 from pathlib import Path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 class AHProductChecker:
@@ -16,45 +25,43 @@ class AHProductChecker:
 
     def __init__(self, device_serial=None):
         """Initialize the checker and connect to Android device."""
-        print("Connecting to Android device...")
+        logger.info("Connecting to Android device...")
         if device_serial:
             self.device = u2.connect(device_serial)
         else:
             self.device = u2.connect()  # Connect to first available device
 
-        print(f"Connected to: {self.device.info}")
+        logger.info(f"Connected to: {self.device.info}")
         self.results = []
 
     def launch_app(self, package_name="com.icemobile.albertheijn"):
         """Launch the Albert Heijn app."""
-        print(f"Launching {package_name}...")
+        logger.info(f"Launching {package_name}...")
         self.device.app_start(package_name)
         time.sleep(3)  # Wait for app to launch
 
     def navigate_to_store_selection(self):
         """Navigate to the store selection screen."""
-        print("Navigating to store selection...")
+        logger.info("Navigating to store selection...")
 
         # Click on store selector button using XPath
         xpath_store_selector = '//*[@resource-id="shoppingIntentToolbar_text_title"]'
-        if self.device.xpath(xpath_store_selector).exists:
-            print("Found store selector button")
+        try:
+            logger.info("Clicking store selector button")
             self.device.xpath(xpath_store_selector).click()
-            time.sleep(2)
-        else:
-            print("Error: Store selector button not found")
+            return True
+        except Exception as e:
+            logger.error(f"Store selector button not found: {e}")
             return False
-
-        return True
 
     def select_store_by_postcode(self, postcode):
         """Select a store by its postcode using the search field."""
-        print(f"Selecting store with postcode: {postcode}")
+        logger.info(f"Selecting store with postcode: {postcode}")
 
         # Clean postcode (remove spaces, uppercase)
         postcode_clean = postcode.replace(" ", "").upper()
 
-        print(f"Searching for: {postcode_clean}")
+        logger.info(f"Searching for: {postcode_clean}")
 
         # XPath selectors
         xpath_choose_another = '//*[@content-desc="Kies een andere winkel"]'
@@ -63,150 +70,148 @@ class AHProductChecker:
         xpath_vervang = '//*[@content-desc="Vervang"]'
 
         # Click "Kies een andere winkel" (Choose another store)
-        if self.device.xpath(xpath_choose_another).exists:
-            print("Clicking 'Choose another store' button...")
+        try:
+            logger.info("Clicking 'Choose another store' button...")
             self.device.xpath(xpath_choose_another).click()
-            time.sleep(2)
-        else:
-            print("Warning: 'Choose another store' button not found")
+        except Exception as e:
+            logger.warning(f"'Choose another store' button not found: {e}")
 
         # Click the search field and enter postcode
-        print("Clicking search field...")
-        if self.device.xpath(xpath_search_field).exists:
+        try:
+            logger.info("Clicking search field...")
             self.device.xpath(xpath_search_field).click()
-            time.sleep(1)
-
-            print(f"Entering postcode: {postcode_clean}")
+            logger.info(f"Entering postcode: {postcode_clean}")
             self.device.xpath(xpath_search_field).set_text(postcode_clean)
-            time.sleep(2)  # Wait for search results
-        else:
-            print("Error: Cannot find search field")
+        except Exception as e:
+            logger.error(f"Cannot find search field: {e}")
             return False
 
         # Click "Kies deze winkel" button
-        print("Clicking 'Kies deze winkel' button...")
-        if self.device.xpath(xpath_choose_store).exists:
+        try:
+            logger.info("Clicking 'Kies deze winkel' button...")
             self.device.xpath(xpath_choose_store).click()
-            time.sleep(2)
-            print("Clicked 'Kies deze winkel'")
-        else:
-            print(f"Error: Store with postcode '{postcode}' not found in search results")
+            logger.info("Clicked 'Kies deze winkel'")
+        except Exception as e:
+            logger.error(f"Store with postcode '{postcode}' not found: {e}")
             # Close the store selection screen
-            xpath_close = '//*[@content-desc="Sluiten"]'
-            if self.device.xpath(xpath_close).exists:
+            try:
+                xpath_close = '//*[@content-desc="Sluiten"]'
                 self.device.xpath(xpath_close).click()
+            except Exception as e2:
+                logger.warning(f"Could not close modal: {e2}")
             return False
 
         # Click "Vervang" button to confirm store change
-        print("Waiting for confirmation modal...")
-        time.sleep(1)
-
-        if self.device.xpath(xpath_vervang).exists:
-            print("Clicking 'Vervang' to confirm...")
+        try:
+            logger.info("Clicking 'Vervang' to confirm...")
             self.device.xpath(xpath_vervang).click()
-            time.sleep(2)
 
             # Click "Verder winkelen" (Continue shopping) button
-            xpath_continue = '//*[@text="Verder winkelen"]'
-            if self.device.xpath(xpath_continue).exists:
-                print("Clicking 'Verder winkelen'...")
+            try:
+                xpath_continue = '//*[@text="Verder winkelen"]'
+                logger.info("Clicking 'Verder winkelen'...")
                 self.device.xpath(xpath_continue).click()
-                time.sleep(2)
+            except Exception as e:
+                logger.warning(f"'Verder winkelen' button not found: {e}")
 
             return True
-        else:
+        except Exception as e:
             # Check if store is already selected (no confirmation modal appears)
-            xpath_close = '//*[@content-desc="Sluiten"]'
-            if self.device.xpath(xpath_close).exists:
-                print("Store already selected (no confirmation needed)")
+            try:
+                xpath_close = '//*[@content-desc="Sluiten"]'
+                logger.info("Store already selected (no confirmation needed)")
                 self.device.xpath(xpath_close).click()
-                time.sleep(1)
                 return True
-            else:
-                print("Warning: 'Vervang' button not found and cannot determine state!")
+            except Exception as e2:
+                logger.warning(f"'Vervang' button not found: {e}")
                 return False
 
     def search_for_product(self, product_name):
         """Search for a product in the app."""
-        print(f"Searching for product: {product_name}")
+        logger.info(f"Searching for product: {product_name}")
 
         # XPath for search bar
         xpath_search_bar = '//*[@text="Zoek een product"]'
 
         # Click on search bar
-        if self.device.xpath(xpath_search_bar).exists:
-            print("Found search bar")
+        try:
+            logger.info("Clicking search bar")
             self.device.xpath(xpath_search_bar).click()
-            time.sleep(2)
-        else:
-            print("Error: Search bar not found")
+        except Exception as e:
+            logger.error(f"Search bar not found: {e}")
             return False
 
         # Enter search term
-        if self.device(className="android.widget.EditText").exists:
+        try:
             self.device(className="android.widget.EditText").set_text(product_name)
-            time.sleep(1)
             self.device.press("enter")
-            time.sleep(2)
             return True
-        else:
-            print("Error: Could not find search input field")
+        except Exception as e:
+            logger.error(f"Could not find search input field: {e}")
             return False
 
     def click_product_in_results(self, product_name):
         """Click on a product from search results."""
-        print(f"Looking for product in results: {product_name}")
+        logger.info(f"Looking for product in results: {product_name}")
 
         # Use partial match to find product
         # Extract first few words for partial match
         search_terms = " ".join(product_name.split()[:3])
         xpath_product = f'//android.widget.TextView[contains(@text, "{search_terms}")]'
 
-        if self.device.xpath(xpath_product).exists:
-            print(f"Found product matching '{search_terms}'")
+        try:
+            logger.info(f"Found product matching '{search_terms}'")
             self.device.xpath(xpath_product).click()
-            time.sleep(2)
             return True
-        else:
-            print(f"Error: Product not found in search results")
+        except:
+            logger.error(f"Product not found in search results")
             return False
 
     def check_product_availability(self):
         """Check if the product is available at the current store."""
-        print("Checking product availability...")
+        logger.info("Checking product availability...")
 
         # XPath selectors for availability
         xpath_not_available = '//*[@text="Niet te koop in mijn winkel"]'
         xpath_available = '//*[@text="Te koop in mijn winkel"]'
 
-        # Wait a moment for page to load
-        time.sleep(1)
-
-        if self.device.xpath(xpath_not_available).exists:
-            print("Product not available at this store")
+        # Try to find "not available" indicator first
+        try:
+            self.device.xpath(xpath_not_available).get(timeout=5)
+            logger.info("Product not available at this store")
             return False, "Not available at this store"
-        elif self.device.xpath(xpath_available).exists:
-            print("Product available at this store")
+        except:
+            pass
+
+        # Try to find "available" indicator
+        try:
+            self.device.xpath(xpath_available).get(timeout=5)
+            logger.info("Product available at this store")
             return True, "Available at this store"
-        else:
-            print("Warning: Could not determine availability")
-            return None, "Unknown"
+        except:
+            pass
+
+        logger.warning("Could not determine availability")
+        return None, "Unknown"
 
     def get_current_store_info(self):
         """Extract current store name and address from the app."""
-        print("Getting store information...")
+        logger.info("Getting store information...")
 
         store_name = "Unknown Store"
         store_address = "Unknown Address"
 
         # Try to extract store info from the store selector button
-        if self.device(resourceId="shoppingIntentToolbar_text_title").exists:
-            elem = self.device(resourceId="shoppingIntentToolbar_text_title")
-            store_text = elem.info.get('text', '')
+        xpath_store_selector = '//*[@resource-id="shoppingIntentToolbar_text_title"]'
+        try:
+            elem = self.device.xpath(xpath_store_selector).get()
+            store_text = elem.attrib.get('text', '')
             if store_text:
                 store_name = store_text
                 store_address = store_text
-                print(f"Found store: {store_name}")
+                logger.info(f"Found store: {store_name}")
+        except Exception as e:
+            logger.warning(f"Could not get store info: {e}")
 
         return {
             "name": store_name,
@@ -215,31 +220,30 @@ class AHProductChecker:
 
     def check_stores(self, product_name, postcodes_to_check):
         """Check product availability across multiple stores by postcode."""
-        print(f"\n{'='*60}")
-        print(f"Checking product: {product_name}")
-        print(f"Number of postcodes to check: {len(postcodes_to_check)}")
-        print(f"Postcodes: {', '.join(postcodes_to_check)}")
-        print(f"{'='*60}\n")
+        logger.info("="*60)
+        logger.info(f"Checking product: {product_name}")
+        logger.info(f"Number of postcodes to check: {len(postcodes_to_check)}")
+        logger.info(f"Postcodes: {', '.join(postcodes_to_check)}")
+        logger.info("="*60)
 
         self.launch_app()
 
         for idx, postcode in enumerate(postcodes_to_check, 1):
-            print(f"\n[{idx}/{len(postcodes_to_check)}] Processing postcode: {postcode}")
-            print("-" * 60)
+            logger.info(f"[{idx}/{len(postcodes_to_check)}] Processing postcode: {postcode}")
+            logger.info("-" * 60)
 
             # Navigate to store selection
             self.navigate_to_store_selection()
 
             # Select the store by postcode
             if not self.select_store_by_postcode(postcode):
-                print(f"Skipping postcode: {postcode}")
+                logger.warning(f"Skipping postcode: {postcode}")
                 # Go back to home to retry
                 xpath_home = '//android.widget.TextView[@text="Home"]'
                 if self.device.xpath(xpath_home).exists:
                     self.device.xpath(xpath_home).click()
                 else:
                     self.device.press("back")
-                time.sleep(1)
                 continue
 
             # Get store info before searching (to capture which store we selected)
@@ -247,25 +251,23 @@ class AHProductChecker:
 
             # Search for product
             if not self.search_for_product(product_name):
-                print(f"Failed to search for product at {postcode}")
+                logger.error(f"Failed to search for product at {postcode}")
                 xpath_home = '//android.widget.TextView[@text="Home"]'
                 if self.device.xpath(xpath_home).exists:
                     self.device.xpath(xpath_home).click()
                 else:
                     self.device.press("back")
-                time.sleep(1)
                 continue
 
             # Click on product in search results
             if not self.click_product_in_results(product_name):
-                print(f"Failed to find product in results at {postcode}")
+                logger.error(f"Failed to find product in results at {postcode}")
                 xpath_home = '//android.widget.TextView[@text="Home"]'
                 if self.device.xpath(xpath_home).exists:
                     self.device.xpath(xpath_home).click()
                 else:
                     self.device.press("back")
                     self.device.press("back")
-                time.sleep(1)
                 continue
 
             # Check availability
@@ -284,21 +286,19 @@ class AHProductChecker:
 
             self.results.append(result)
 
-            print(f"Result: Available={available} ({status})")
+            logger.info(f"Result: Available={available} ({status})")
 
             # Go back to home for next iteration
             xpath_home = '//android.widget.TextView[@text="Home"]'
             if self.device.xpath(xpath_home).exists:
                 self.device.xpath(xpath_home).click()
-                time.sleep(1)
             else:
-                print("Warning: Home button not found, using back button")
+                logger.warning("Home button not found, using back button")
                 self.device.press("back")
-                time.sleep(1)
 
-        print(f"\n{'='*60}")
-        print(f"Completed checking {len(self.results)} stores")
-        print(f"{'='*60}\n")
+        logger.info("="*60)
+        logger.info(f"Completed checking {len(self.results)} stores")
+        logger.info("="*60)
 
     def save_results(self, format="csv"):
         """Save results to file."""
@@ -311,15 +311,15 @@ class AHProductChecker:
             filename = f"results_{timestamp}.json"
             self._save_json(filename)
         else:
-            print(f"Unknown format: {format}")
+            logger.error(f"Unknown format: {format}")
             return
 
-        print(f"\nResults saved to: {filename}")
+        logger.info(f"Results saved to: {filename}")
 
     def _save_csv(self, filename):
         """Save results as CSV."""
         if not self.results:
-            print("No results to save")
+            logger.warning("No results to save")
             return
 
         with open(filename, 'w', newline='', encoding='utf-8') as f:
@@ -373,14 +373,14 @@ def load_config(config_file="config.json"):
         with open(config_file, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"Config file '{config_file}' not found. Using defaults.")
+        logger.warning(f"Config file '{config_file}' not found. Using defaults.")
         return None
 
 
 def main():
     """Main entry point."""
-    print("Albert Heijn Product Store Checker")
-    print("="*60)
+    logger.info("Albert Heijn Product Store Checker")
+    logger.info("="*60)
 
     # Load config
     config = load_config()
@@ -399,7 +399,7 @@ def main():
         device_serial = None
 
     if not product_name or not postcodes:
-        print("Error: Product name and postcodes are required")
+        logger.error("Product name and postcodes are required")
         return
 
     # Create checker and run
@@ -410,7 +410,7 @@ def main():
         # Optionally save results to file (commented out by default)
         # checker.save_results(format=output_format)
     except Exception as e:
-        print(f"\nError occurred: {e}")
+        logger.error(f"Error occurred: {e}")
         import traceback
         traceback.print_exc()
 

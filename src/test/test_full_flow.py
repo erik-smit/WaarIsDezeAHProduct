@@ -16,7 +16,7 @@ print("="*60)
 
 # Configuration
 product_name = "Crosta Mollica Garlic & mozzarella flatbread"
-test_postcodes = ["9711HX", "9712BA"]  # Test with 2 postcodes
+test_postcodes = ["9711HX", "9712BA", "9721CX"]  # Test with 3 postcodes
 
 # Create checker
 checker = AHProductChecker()
