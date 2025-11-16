@@ -218,6 +218,21 @@ class AHProductChecker:
             "address": store_address
         }
 
+    def navigate_to_producten_tab(self):
+        """Navigate to the Producten tab (relative to Home button)."""
+        logger.info("Navigating to Producten tab...")
+
+        # XPath that finds Producten relative to Home button
+        xpath_producten = '//*[@text="Producten"]'
+
+        try:
+            self.device.xpath(xpath_producten).click()
+            logger.info("Clicked Producten tab")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to click Producten tab: {e}")
+            return False
+
     def check_stores(self, product_name, postcodes_to_check):
         """Check product availability across multiple stores by postcode."""
         logger.info("="*60)
@@ -228,9 +243,34 @@ class AHProductChecker:
 
         self.launch_app()
 
+        # Navigate to Producten tab to register the product there
+        if not self.navigate_to_producten_tab():
+            logger.error("Failed to navigate to Producten tab in setup")
+            return
+        
+        # Search for product once at the beginning
+        logger.info("Searching for product (one-time setup)...")
+        if not self.search_for_product(product_name):
+            logger.error("Failed to search for product")
+            return
+
+        if not self.click_product_in_results(product_name):
+            logger.error("Failed to find product in search results")
+            return
+
+        logger.info("Product found and registered in Producten tab! Now checking each store...")
+
         for idx, postcode in enumerate(postcodes_to_check, 1):
             logger.info(f"[{idx}/{len(postcodes_to_check)}] Processing postcode: {postcode}")
             logger.info("-" * 60)
+
+            # Go to Home tab
+            xpath_home = '//android.widget.TextView[@text="Home"]'
+            try:
+                self.device.xpath(xpath_home).click()
+                logger.info("Switched to Home tab")
+            except Exception as e:
+                logger.warning(f"Failed to click Home tab: {e}")
 
             # Navigate to store selection
             self.navigate_to_store_selection()
@@ -238,36 +278,14 @@ class AHProductChecker:
             # Select the store by postcode
             if not self.select_store_by_postcode(postcode):
                 logger.warning(f"Skipping postcode: {postcode}")
-                # Go back to home to retry
-                xpath_home = '//android.widget.TextView[@text="Home"]'
-                if self.device.xpath(xpath_home).exists:
-                    self.device.xpath(xpath_home).click()
-                else:
-                    self.device.press("back")
                 continue
 
-            # Get store info before searching (to capture which store we selected)
+            # Get store info
             store_info = self.get_current_store_info()
 
-            # Search for product
-            if not self.search_for_product(product_name):
-                logger.error(f"Failed to search for product at {postcode}")
-                xpath_home = '//android.widget.TextView[@text="Home"]'
-                if self.device.xpath(xpath_home).exists:
-                    self.device.xpath(xpath_home).click()
-                else:
-                    self.device.press("back")
-                continue
-
-            # Click on product in search results
-            if not self.click_product_in_results(product_name):
-                logger.error(f"Failed to find product in results at {postcode}")
-                xpath_home = '//android.widget.TextView[@text="Home"]'
-                if self.device.xpath(xpath_home).exists:
-                    self.device.xpath(xpath_home).click()
-                else:
-                    self.device.press("back")
-                    self.device.press("back")
+            # Navigate to Producten tab to see the product
+            if not self.navigate_to_producten_tab():
+                logger.error(f"Failed to navigate to product at {postcode}")
                 continue
 
             # Check availability
@@ -287,14 +305,6 @@ class AHProductChecker:
             self.results.append(result)
 
             logger.info(f"Result: Available={available} ({status})")
-
-            # Go back to home for next iteration
-            xpath_home = '//android.widget.TextView[@text="Home"]'
-            if self.device.xpath(xpath_home).exists:
-                self.device.xpath(xpath_home).click()
-            else:
-                logger.warning("Home button not found, using back button")
-                self.device.press("back")
 
         logger.info("="*60)
         logger.info(f"Completed checking {len(self.results)} stores")
