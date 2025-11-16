@@ -175,21 +175,23 @@ class AHProductChecker:
         xpath_not_available = '//*[@text="Niet te koop in mijn winkel"]'
         xpath_available = '//*[@text="Te koop in mijn winkel"]'
 
-        # Try to find "not available" indicator first
-        try:
-            self.device.xpath(xpath_not_available).get(timeout=5)
-            logger.info("Product not available at this store")
-            return False, "Not available at this store"
-        except:
-            pass
+        # Alternate between checking "available" and "not available"
+        for attempt in range(5):
+            # Check for "available"
+            try:
+                self.device.xpath(xpath_available).get(timeout=1)
+                logger.info("Product available at this store")
+                return True, "Available at this store"
+            except:
+                pass
 
-        # Try to find "available" indicator
-        try:
-            self.device.xpath(xpath_available).get(timeout=5)
-            logger.info("Product available at this store")
-            return True, "Available at this store"
-        except:
-            pass
+            # Check for "not available"
+            try:
+                self.device.xpath(xpath_not_available).get(timeout=1)
+                logger.info("Product not available at this store")
+                return False, "Not available at this store"
+            except:
+                pass
 
         logger.warning("Could not determine availability")
         return None, "Unknown"
