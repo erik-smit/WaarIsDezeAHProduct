@@ -1,3 +1,11 @@
+# DEPRECATED
+
+Albert Heijn heeft deze functie nu geintegreerd in de app zelf.  
+
+<p align="center">
+  <img src="ah.jpg" width="30%" alt="Device Scanning Screen" />
+</p>
+
 # Waar Is Deze AH Product?
 
 Vind je het ook zo onhandig om steeds tussen winkels te moeten klikken om te vinden in welke lokale AH iets in het assortiment zit?  
